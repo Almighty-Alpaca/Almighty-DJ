@@ -1,0 +1,26 @@
+# JDA files
+config.json
+tokens.json
+
+# eclipse files
+.classpath
+.project
+.settings/
+/bin/
+
+# Intellij
+/.idea/
+*.iml
+*.ipr
+*.iws
+ 
+# Mac
+.DS_Store
+ 
+# Maven
+log/
+target/
+
+# gradle
+/build/
+/.gradle/
