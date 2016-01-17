@@ -1,0 +1,11 @@
+{
+  "credentials": {
+    "password": "",
+    "email": ""
+  },
+  "proxy": {
+    "use": false,
+    "host": "",
+    "port": 8080
+  }
+}
