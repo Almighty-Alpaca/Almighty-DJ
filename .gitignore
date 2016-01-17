@@ -1,8 +1,8 @@
 # Project files
 music/
+config.json
 
 # JDA files
-config.json
 tokens.json
 
 # eclipse files
