@@ -161,7 +161,7 @@ public class Tester extends ListenerAdapter
 
             long time = System.currentTimeMillis();
             System.out.println("starting test");
-//            new OpusRewrite(null);  //This is where the magic happens.
+            new OpusRewrite();  //This is where the magic happens.
             System.out.println("finished test. Time: " + (System.currentTimeMillis() - time) + "ms");
 
             JSONObject obj2 = new JSONObject()
