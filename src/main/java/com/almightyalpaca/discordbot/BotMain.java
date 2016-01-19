@@ -14,13 +14,17 @@ import com.almightyalpaca.discordbot.config.Config;
 import com.almightyalpaca.discordbot.config.ConfigFactory;
 import com.almightyalpaca.discordbot.config.KeyNotFoundException;
 import com.almightyalpaca.discordbot.config.WrongTypeException;
+import com.almightyalpaca.discordbot.player.AbstractAudioPlayer;
 import com.almightyalpaca.discordbot.player.AudioFilePlayer;
-import com.almightyalpaca.discordbot.player.AudioPlayer;
 import com.almightyalpaca.discordbot.player.AudioUrlPlayer;
 import com.github.axet.wget.WGet;
 import com.github.axet.wget.info.DownloadInfo;
 import com.google.gson.JsonIOException;
 import com.google.gson.JsonSyntaxException;
+import com.mashape.unirest.http.HttpResponse;
+import com.mashape.unirest.http.JsonNode;
+import com.mashape.unirest.http.Unirest;
+import com.mashape.unirest.http.exceptions.UnirestException;
 
 import net.dv8tion.jda.JDA;
 import net.dv8tion.jda.JDABuilder;
@@ -43,7 +47,7 @@ public class BotMain extends ListenerAdapter
 
     File musicDir = null;
 
-    public List<AudioPlayer> list = new ArrayList<>();
+    public List<AbstractAudioPlayer> list = new ArrayList<>();
 
     public TextChannel boundTextChannel = null;
     public VoiceChannel boundVoiceChannel = null;
@@ -88,20 +92,21 @@ public class BotMain extends ListenerAdapter
 
     public void addFile(final File file) throws IOException
     {
-        final AudioPlayer player = new AudioFilePlayer(this, file);
+        System.out.println("Adding " + file);
+        final AbstractAudioPlayer player = new AudioFilePlayer(this, file);
         this.list.add(player);
     }
 
     public void addFileAfterDownload(final URL url) throws IOException
     {
-
         // get file remote information
         DownloadInfo info = new DownloadInfo(url);
         info.extract();
         info.enableMultipart();
         info.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.106 Safari/537.36");
 
-        File file = new File(musicDir, info.getContentFilename());
+        File file = new File(musicDir, String.valueOf(currentFile++) + " " + info.getContentFilename());
+        file.deleteOnExit();
 
         // initialize wget object
         WGet w = new WGet(info, file);
@@ -109,21 +114,49 @@ public class BotMain extends ListenerAdapter
         // is complete (or error raised).
         w.download();
 
-        final AudioPlayer player = new AudioFilePlayer(this, file);
-        this.list.add(player);
+        addFile(file);
+    }
+
+    public void addYoutube(String id) throws IOException
+    {
+        try
+        {
+
+            if (id != null)
+            {
+                HttpResponse<JsonNode> response = Unirest.get("http://www.youtubeinmp3.com/fetch/?format=JSON&video=http://www.youtube.com/watch?v=" + id).header("Accept", "application/json").asJson();
+                JSONObject object = response.getBody().getObject();
+
+                String link = object.getString("link");
+
+                try
+                {
+                    addURL(new URL(link));
+                } catch (Exception ignored)
+                {
+                }
+
+            }
+        } catch (UnirestException e)
+        {
+            e.printStackTrace();
+        }
     }
 
     public void addURL(final URL url) throws IOException
     {
-        final AudioPlayer player = new AudioUrlPlayer(this, url);
+        System.out.println("Adding " + url);
+        final AbstractAudioPlayer player = new AudioUrlPlayer(this, url);
         this.list.add(player);
     }
 
     @Override
     public void onGuildMessageReceived(final GuildMessageReceivedEvent event)
     {
+        System.out.println(event.getMessage().getMentionedUsers().isEmpty());
 
         String text = event.getMessage().getRawContent();
+
         final TextChannel channel = event.getChannel();
 
         if (text.startsWith(this.config.getString("prefix") + " "))
@@ -137,7 +170,6 @@ public class BotMain extends ListenerAdapter
                 {
                     return;
                 }
-
                 final String vcName = text.substring(0, text.indexOf(" ") == -1 ? text.length() : text.indexOf(" "));
 
                 for (final VoiceChannel vc : event.getGuild().getVoiceChannels())
@@ -190,7 +222,7 @@ public class BotMain extends ListenerAdapter
                 output += "The **first** music bot for discord made in **pure java** !" + "\n";
                 output += "**Commands:**" + "\n";
                 output += "**" + this.config.getString("prefix") + " join [channel name]** Join a voice channel" + "\n";
-                output += "**" + this.config.getString("prefix") + " leave** Leave the current voice channel" + "\n";
+                // output += "**" + this.config.getString("prefix") + " leave** Leave the current voice channel" + "\n";
                 output += "**" + this.config.getString("prefix") + " add [link]** Add a sound file to the queue" + "\n";
                 output += "**" + this.config.getString("prefix") + " play** Start/resume the music playback" + "\n";
                 output += "**" + this.config.getString("prefix") + " pause** Pause the music playback" + "\n";
@@ -200,26 +232,50 @@ public class BotMain extends ListenerAdapter
             } else if (text.startsWith("add "))
             {
                 text = text.replace("add ", "");
+
+                final String link = text.substring(0, text.indexOf(" ") == -1 ? text.length() : text.indexOf(" "));
                 try
                 {
-                    final URL url = new URL(text);
-                    this.addURL(url);
+                    final URL url = new URL(link);
+                    String id = Youtube.getYoutubeVideoId(url);
+                    if (id != null)
+                    {
+                        this.addYoutube(id);
+                    } else
+                    {
+                        this.addURL(url);
+                    }
                 } catch (final IOException e)
                 {
                     e.printStackTrace();
                 }
+
+            } else if (text.startsWith("volume "))
+            {
+                text = text.replace("volume ", "");
+                final String volume = text.substring(0, text.indexOf(" ") == -1 ? text.length() : text.indexOf(" "));
+
+                try
+                {
+                    float vol = Float.parseFloat(volume);
+                    amplitude = vol;
+                } catch (Exception e)
+                {
+                    e.printStackTrace();
+                }
+
             } else if (text.startsWith("shutdown"))
             {
                 if (event.getAuthor().getId().contentEquals(config.getString("ownerId")))
                 {
                     System.exit(0);
                 }
-            } else if (text.startsWith("leave"))
-            {
-                stop();
-                final JSONObject obj = new JSONObject().put("op", 4).put("d", new JSONObject().put("guild_id", JSONObject.NULL).put("channel_id", JSONObject.NULL).put("self_mute", false).put("self_deaf", false));
-                final WebSocketClient client = ((JDAImpl) event.getJDA()).getClient();
-                client.send(obj.toString());
+                // } else if (text.startsWith("leave"))
+                // {
+                // stop();
+                // final JSONObject obj = new JSONObject().put("op", 4).put("d", new JSONObject().put("guild_id", JSONObject.NULL).put("channel_id", JSONObject.NULL).put("self_mute", false).put("self_deaf", false));
+                // final WebSocketClient client = ((JDAImpl) event.getJDA()).getClient();
+                // client.send(obj.toString());
             }
         }
 
@@ -234,6 +290,8 @@ public class BotMain extends ListenerAdapter
         }
     }
 
+    public float amplitude = 1.0F;
+
     public void play()
     {
         if (boundVoiceChannel == null)
@@ -245,7 +303,7 @@ public class BotMain extends ListenerAdapter
             return;
         } else
         {
-            AudioPlayer player = list.get(0);
+            AbstractAudioPlayer player = list.get(0);
             if (player.pause)
             {
                 player.pause = false;
@@ -263,7 +321,7 @@ public class BotMain extends ListenerAdapter
             return;
         } else
         {
-            AudioPlayer player = list.get(0);
+            AbstractAudioPlayer player = list.get(0);
             if (player.pause)
             {
                 player.pause = false;
@@ -292,7 +350,7 @@ public class BotMain extends ListenerAdapter
             return;
         } else
         {
-            AudioPlayer player = list.get(0);
+            AbstractAudioPlayer player = list.get(0);
             if (player.pause)
             {
                 player.pause = false;
