@@ -23,12 +23,8 @@ import org.apache.http.HttpHost;
 import org.json.JSONObject;
 
 import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetSocketAddress;
-import java.net.SocketException;
+import java.net.*;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -42,19 +38,19 @@ public class AudioWebSocket extends WebSocketAdapter
     private final JDAImpl api;
     private final Guild guild;
     private final HttpHost proxy;
-    private boolean connected;
-    private long keepAliveInterval;
+    private boolean connected = false;
+    private boolean ready = false;
     private Thread keepAliveThread;
     public static WebSocket socket;
     private String endpoint;
     private String wssEndpoint;
 
-    public static int ssrc;
+    private int ssrc;
     private String sessionId;
     private String token;
 
-    public static DatagramSocket udpSocket;
-    public static InetSocketAddress address;
+    private DatagramSocket udpSocket;
+    private InetSocketAddress address;
     private Thread udpKeepAliveThread;
 
 
@@ -161,6 +157,7 @@ public class AudioWebSocket extends WebSocketAdapter
             case CONNECTING_COMPLETED:
             {
                 System.out.println("Audio connection has finished connecting!");
+                ready = true;
                 break;
             }
             case USER_SPEAKING_UPDATE:
@@ -205,6 +202,7 @@ public class AudioWebSocket extends WebSocketAdapter
                 )
                 .toString());
         connected = false;
+        ready = false;
     }
 
     @Override
@@ -221,6 +219,15 @@ public class AudioWebSocket extends WebSocketAdapter
 
     public void close()
     {
+        JSONObject obj = new JSONObject()
+                .put("op", 4)
+                .put("d", new JSONObject()
+                        .put("guild_id", JSONObject.NULL)
+                        .put("channel_id", JSONObject.NULL)
+                        .put("self_mute", false)
+                        .put("self_deaf", false)
+                );
+        api.getClient().send(obj.toString());
         if (keepAliveThread != null)
         {
             keepAliveThread.interrupt();
@@ -231,12 +238,31 @@ public class AudioWebSocket extends WebSocketAdapter
             udpKeepAliveThread.interrupt();
             udpKeepAliveThread = null;
         }
+        udpSocket.close();
         socket.sendClose();
     }
 
+    public DatagramSocket getUdpSocket()
+    {
+        return udpSocket;
+    }
+
+    public InetSocketAddress getAddress()
+    {
+        return address;
+    }
+
+    public int getSSRC()
+    {
+        return ssrc;
+    }
     public boolean isConnected()
     {
         return connected;
+    }
+    public boolean isReady()
+    {
+        return ready;
     }
 
     private InetSocketAddress handleUdpDiscovery(InetSocketAddress address, int ssrc)
@@ -290,7 +316,6 @@ public class AudioWebSocket extends WebSocketAdapter
             int ourPort = (firstByte << 8) | secondByte;
 
             this.address = address;
-            setupUdpListenThread(address);
             setupUdpKeepAliveThread(address);
 
             return new InetSocketAddress(ourIP, ourPort);
@@ -306,44 +331,6 @@ public class AudioWebSocket extends WebSocketAdapter
         return null;
     }
 
-    private void setupUdpListenThread(final InetSocketAddress address)
-    {
-        JSONObject obj = new JSONObject()
-                .put("op", 5)
-                .put("d", new JSONObject()
-                        .put("speaking", true)
-                        .put("delay", 0)
-                );
-        socket.sendText(obj.toString());
-        Thread udpLister = new Thread()
-        {
-            @Override
-            public void run()
-            {
-                while (!udpSocket.isClosed())
-                {
-                    DatagramPacket receivedPacket = new DatagramPacket(new byte[1920], 1920);
-                    try
-                    {
-                        udpSocket.receive(receivedPacket);
-//                        System.out.println("Received an audio packet");
-
-                        //Uncomment this if you want to echo audio back to a discord channel.
-//                        ByteBuffer buffer = ByteBuffer.wrap(Arrays.copyOf(receivedPacket.getData(), receivedPacket.getLength()));
-//                        AudioPacket packet = new AudioPacket(buffer.array());
-//                        udpSocket.send(AudioPacket.createEchoPacket(receivedPacket, ssrc).asUdpPacket(address));
-                    }
-                    catch (IOException e)
-                    {
-                        e.printStackTrace();
-                    }
-                }
-            }
-        };
-        udpLister.setDaemon(true);
-        udpLister.start();
-    }
-
     private void setupUdpKeepAliveThread(final InetSocketAddress address)
     {
         udpKeepAliveThread = new Thread()
@@ -351,7 +338,7 @@ public class AudioWebSocket extends WebSocketAdapter
             @Override
             public void run()
             {
-                while (socket.isOpen() && !udpSocket.isClosed())
+                while (socket.isOpen() && !udpSocket.isClosed() && !this.isInterrupted())
                 {
                     long seq = 0;
                     try
@@ -364,13 +351,22 @@ public class AudioWebSocket extends WebSocketAdapter
 
                         Thread.sleep(5000); //Wait 5 seconds to send next keepAlivePacket.
                     }
+                    catch (NoRouteToHostException e)
+                    {
+                        System.err.println("Closing AudioConnection due to inability to ping audio packets.");
+                        System.err.println("Cannot send audio packet because JDA navigate the route to Discord.\n" +
+                                "Are you sure you have internet connection? It is likely that you've lost connection.");
+                        AudioWebSocket.this.close();
+                        break;
+                    }
                     catch (IOException e)
                     {
                         e.printStackTrace();
                     }
                     catch (InterruptedException e)
                     {
-                        e.printStackTrace();
+                        //We were asked to close.
+//                        e.printStackTrace();
                     }
                 }
             }
@@ -381,40 +377,31 @@ public class AudioWebSocket extends WebSocketAdapter
 
     private void setupKeepAliveThread(int keepAliveInterval)
     {
-        keepAliveThread = new Thread(() ->
+        keepAliveThread = new Thread()
         {
-            while (socket.isOpen() && !keepAliveThread.isInterrupted())
+            @Override
+            public void run()
             {
-                send(new JSONObject()
-                        .put("op", 3)
-                        .put("d", System.currentTimeMillis())
-                        .toString());
-                try
+                while (socket.isOpen() && !this.isInterrupted())
                 {
-                    Thread.sleep(keepAliveInterval);
-                }
-                catch (InterruptedException e)
-                {
-                    //Will quit next iteration.
+                    send(new JSONObject()
+                            .put("op", 3)
+                            .put("d", System.currentTimeMillis())
+                            .toString());
+                    try
+                    {
+                        Thread.sleep(keepAliveInterval);
+                    }
+                    catch (InterruptedException e)
+                    {
+                        //We were asked to close.
+//                        e.printStackTrace();
+                    }
                 }
             }
-        });
+        };
         keepAliveThread.setDaemon(true);
         keepAliveThread.start();
-    }
-
-    char seq = 0;
-    public void convertBuffer(ByteBuffer buffer)
-    {
-        if (seq + 1 > 65535)
-            seq = 0;
-        else
-            seq++;
-        buffer.put(0, (byte)0x80);  //x80   10100000    Unsigned
-//        buffer.put(1, (byte)0x78);      //01111000    Unsigned
-        buffer.putChar(2, seq);
-        buffer.putInt(8, ssrc);
-
     }
 }
 
