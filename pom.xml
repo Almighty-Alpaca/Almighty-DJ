@@ -8,100 +8,31 @@
 	<description>A music-bot for discord</description>
 	<dependencies>
 		<dependency>
-			<groupId>net.dv8tion</groupId>
-			<artifactId>JDA</artifactId>
-			<version>1.2.1_106</version>
-			<exclusions>
-				<exclusion>
-					<artifactId>commons-lang3</artifactId>
-					<groupId>org.apache.commons</groupId>
-				</exclusion>
-			</exclusions>
-		</dependency>
-		<dependency>
 			<groupId>com.google.code.gson</groupId>
 			<artifactId>gson</artifactId>
 			<version>2.5</version>
-		</dependency>
-		<dependency>
-			<groupId>com.googlecode.soundlibs</groupId>
-			<artifactId>mp3spi</artifactId>
-			<version>1.9.5-1</version>
-		</dependency>
-		<dependency>
-			<groupId>com.googlecode.soundlibs</groupId>
-			<artifactId>vorbisspi</artifactId>
-			<version>1.0.3-1</version>
-		</dependency>
-		<dependency>
-			<groupId>com.github.axet</groupId>
-			<artifactId>wget</artifactId>
-			<version>1.2.15</version>
-		</dependency>
-		<dependency>
-			<groupId>net.java.dev.jna</groupId>
-			<artifactId>jna</artifactId>
-			<version>4.2.1</version>
 		</dependency>
 		<dependency>
 			<groupId>com.google.guava</groupId>
 			<artifactId>guava</artifactId>
 			<version>19.0</version>
 		</dependency>
-
-		<!-- local -->
+		<!-- Local libs -->
 		<dependency>
-			<groupId>org.tritonus</groupId>
-			<artifactId>tritonus-dsp</artifactId>
-			<version>0.3.6</version>
+			<groupId>net.dv8tion</groupId>
+			<artifactId>JDA</artifactId>
+			<version>1.2.1_126</version>
 			<scope>system</scope>
-			<systemPath>${project.basedir}/src/main/resources/tritonus_dsp-0.3.6.jar</systemPath>
+			<systemPath>${project.basedir}/src/main/resources/JDA-withDependencies-1.2.1_126.jar</systemPath>
 		</dependency>
 		<dependency>
-			<groupId>org.tritonus</groupId>
-			<artifactId>tritonus-remaining</artifactId>
-			<version>0.3.6</version>
+			<groupId>de.voidplus</groupId>
+			<artifactId>soundcloud</artifactId>
+			<version>0.2.1</version>
 			<scope>system</scope>
-			<systemPath>${project.basedir}/src/main/resources/tritonus_remaining-0.3.6.jar</systemPath>
+			<systemPath>${project.basedir}/src/main/resources/soundcloud-0.2.1-jar-with-dependencies.jar</systemPath>
 		</dependency>
-
-		<!-- com.googlecode.soundlibs -->
-		<dependency>
-			<groupId>com.googlecode.soundlibs</groupId>
-			<artifactId>tritonus-share</artifactId>
-			<version>0.3.7-2</version>
-		</dependency>
-		<!-- <dependency> -->
-		<!-- <groupId>com.googlecode.soundlibs</groupId> -->
-		<!-- <artifactId>tritonus-remaining</artifactId> -->
-		<!-- <version>0.3.6</version> -->
-		<!-- </dependency> -->
-
-		<!-- http://lius4compass.googlecode.com/svn-history/maven2/ -->
-<!-- 		<dependency> -->
-<!-- 		<groupId>org.tritonus</groupId> -->
-<!-- 		<artifactId>tritonus-share</artifactId> -->
-<!-- 		<version>0.3.6</version> -->
-		<!-- </dependency> -->
-		<!-- <dependency> -->
-		<!-- <groupId>org.tritonus</groupId> -->
-		<!-- <artifactId>tritonus-remaining</artifactId> -->
-		<!-- <version>0.3.6</version> -->
-		<!-- </dependency> -->
-
 	</dependencies>
-	<!-- <repositories> -->
-	<!-- <repository> -->
-<!-- <id>lius4compass</id> -->
-	<!-- <url>http://lius4compass.googlecode.com/svn-history/maven2/</url> -->
-	<!-- <releases> -->
-	<!-- <enabled>true</enabled> -->
-	<!-- </releases> -->
-	<!-- <snapshots> -->
-	<!-- <enabled>true</enabled> -->
-	<!-- </snapshots> -->
-	<!-- </repository> -->
-	<!-- </repositories> -->
 	<properties>
 		<maven.compiler.source>1.8</maven.compiler.source>
 		<maven.compiler.target>1.8</maven.compiler.target>

@@ -1,13 +1,24 @@
 {
-  "credentials": {
-    "password": "",
-    "email": ""
-  },
-  "proxy": {
-    "use": false,
-    "host": "",
-    "port": 8080
-  },
-  "prefix": "",
-  "ownerId": ""
+	"proxy": {
+		"port": 8080,
+		"use": false,
+		"host": ""
+	},
+	"credentials": {
+		"password": "",
+		"email": ""
+	},
+	"prefix": ">dj",
+	"ownerId": "",
+	"integrations": {
+		"soundcloud": {
+			"client_secret": "",
+			"client_id": ""
+		},
+		"marshape": {
+			"appKey": ""
+		}
+	},
+	"version": 2,
+	"proxyHost": ""
 }
